@@ -1,0 +1,9 @@
+[general]
+name=qgis_plugin_serialControl
+description=Plugin control puerto serial
+about=Plugin desarrollado por ATN agricola desarrollos
+version=1.0
+qgisMinimumVersion=3.0
+author=Pablo Núñez Canales
+email=agritecnologiacr@outlook.com
+repository=
