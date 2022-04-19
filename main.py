@@ -8,8 +8,8 @@ from PyQt5.QtCore import Qt, QTimer, QDateTime
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QAction, QMessageBox
 
-from qgis.utils import iface
-from qgis.gui import QgsRubberBand, QgsMapToolEmitPoint
+from qgis import utils
+from qgis.gui import QgsRubberBand
 from qgis.core import Qgis, QgsApplication, QgsProject, QgsSettings, QgsMessageLog, QgsVectorLayer, QgsPoint, QgsGeometry, QgsWkbTypes, QgsDistanceArea
 
 from .autopilot import getRute
@@ -44,9 +44,8 @@ class Main_Plugin:
 		
 		#Banderas
 		self.flatPort = False
-
-		#self.pointTool = QgsMapToolEmitPoint(self.canvas)
-		#self.pointTool.canvasClicked.connect(self.display_point)	
+		self.flat_gps_active = False
+		self.flat_layer_select = False
 
 	def unload(self): 
 
@@ -56,8 +55,8 @@ class Main_Plugin:
 	def run(self):					# Iniciamos plugin en interfaz
 
 		self.iface.addDockWidget( Qt.RightDockWidgetArea, self.dock )   # Agregamos panel a interface
-		#self.iface.mapCanvas().renderComplete.connect(self.renderTest)
 		self.initPlugin()
+		self.connect_GPS()
 
 	def initPlugin(self):
 		ports = []
@@ -66,27 +65,52 @@ class Main_Plugin:
 			ports.append(str(i).split(" ")[0])
 		
 		self.dock.comboBox_ports.addItems(ports)
-	
-	def display_point(self, pointTool):
-		print('{:.4f},{:.4f}'.format(pointTool[0], pointTool[1]))	
-		print("algo")	
+
+	def connect_GPS(self):
+
+		self.connectionList = QgsApplication.gpsConnectionRegistry().connectionList()
+
+		if self.connectionList == []:                           # Si no se encuentra ningun dispositivo gps disponible
+			utils.iface.messageBar().pushMessage("Error ","Dispositivo GPS no Conectado",level=Qgis.Critical,duration=3)
+			self.flat_gps_active = False
+
+		else:                                                   # Dispositivo gps detectado
+			utils.iface.messageBar().pushMessage("OK ","Dispositivo GPS Encontrado",level=Qgis.Info,duration=3)
+			self.GPS = self.connectionList[0]             
+			self.GPS.stateChanged.connect(self.status_changed)  # Conecta signal con recepcion de dato nuevo
+			self.GPS.destroyed.connect(self.connectionLost)     # En caso de desconeccion dispara rutina
+			self.flat_gps_active = True
+
+	def status_changed(self,gpsInfo):
+		if self.GPS.status() == 3:                              # Si se recibe nueva ubicacion GPS
+			now = gpsInfo.utcDateTime.currentDateTime().toString(Qt.TextDate)
+			print(now)
+			print(gpsInfo.longitude)
+			print(gpsInfo.latitude)
+			if self.flat_layer_select:
+				self.rute.init_vert(gpsInfo.longitude, gpsInfo.latitude)
+
+	def connectionLost(self):
+		try:
+			self.GPS.stateChanged.disconnect(self.status_changed)
+		except:
+			pass
+
+		utils.iface.messageBar().pushMessage("Error ","Perdida Conexion",level=Qgis.Critical,duration=5)
 
 	def test(self):
-		#self.r = QgsRubberBand(self.canvas, False)  # False = not a polygon
-		#points = [QgsPoint(-100, 45), QgsPoint(10, 60), QgsPoint(120, 45)]
-		#self.r.setToGeometry(QgsGeometry.fromPolyline(points), None)
-		print("test")
-
-	def renderTest(self, painter):
-    		# use painter for drawing to map canvas
-    		print ("TestPlugin: renderTest called!")
+		#print("test")
+		self.rute.erase()
 
 	def selectLayerRute(self):
 		ruta = QgsProject().instance().mapLayersByName(self.dock.mMapLayerComboBox.currentText())[0]
 		
-		rute = getRute(ruta)
-		rute.printVert()
-		rute.distance_points()
+		self.rute = getRute(ruta, self.canvas)
+		self.flat_layer_select = True
+		
+		#longitude = -85.49951
+		#latitude = 10.39042
+		#self.rute.init_vert(longitude, latitude)
 
 	def connect_port(self):
 		if self.flatPort == False:
@@ -110,6 +134,8 @@ class Main_Plugin:
 		
 		if self.flatPort == True:
 			self.port.close()
-		
-		#self.iface.mapCanvas().renderComplete.disconnect(self.renderTest)
+		if self.flat_gps_active:
+			self.GPS.stateChanged.disconnect(self.status_changed)
+			del self.GPS
+
 		self.dock.close()                                   # Cierra plugin

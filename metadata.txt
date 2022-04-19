@@ -1,6 +1,6 @@
 [general]
-name=qgis_plugin_serialControl
-description=Plugin control puerto serial
+name=Sistema de Guiado de conduccion
+description=Plugin para guiado de conduccion electro asistida
 about=Plugin desarrollado por ATN agricola desarrollos
 version=1.0
 qgisMinimumVersion=3.0
