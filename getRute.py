@@ -19,14 +19,95 @@ class getRute:
 		self.layerRute = layer
 		self.layer_type = layer.type()
 		self.layerEPSG = layer.crs().authid()
+		self.points = []
+		self.lines_total = []
 		self.mapCanvas = mapCanvas
-			
+		
+		crsMap = QgsCoordinateReferenceSystem(self.mapCanvas.mapSettings().destinationCrs().authid())
+		crsGps = QgsCoordinateReferenceSystem("EPSG:4326")
+		crsCalc = QgsCoordinateReferenceSystem("EPSG:3857")   
+		crsLayer = QgsCoordinateReferenceSystem(self.layerEPSG) 
+
+		transformContext = QgsProject.instance().transformContext()             # Crear instancia de tranformacion
+
+		self.gps_to_calc_transformCoord = QgsCoordinateTransform(crsGps, crsCalc, transformContext)             # Crear formulario transformacion
+		self.gps_to_map_transformCoord = QgsCoordinateTransform(crsGps, crsMap, transformContext)
+		self.layer_to_calc_transformCoord = QgsCoordinateTransform(crsLayer, crsCalc, transformContext)
+		self.layer_to_map_transformCoord = QgsCoordinateTransform(crsLayer, crsMap, transformContext)
+		self.calc_to_layer_transformCoord = QgsCoordinateTransform(crsCalc, crsLayer, transformContext)
+		self.calc_to_gps_transformCoord = QgsCoordinateTransform(crsCalc, crsGps, transformContext)
+	
 	def valid(self):
 						
-		point_type = 0
-		point_valid = False
+		if self.layer_type == QgsMapLayerType.RasterLayer:
+			print("Capa Raster")
+			return False
+
+		elif self.layer_type == QgsMapLayerType.VectorLayer:
+			if self.layerRute.wkbType() == QgsWkbTypes.LineString or self.layerRute.wkbType() == QgsWkbTypes.MultiLineString:
+				print("Capa Linea")
+				
+				features = self.layerRute.getFeatures()
+				for feature in features:
+					geom = feature.geometry()
+					geomSingleType = QgsWkbTypes.isSingleType(geom.wkbType())
+					if geom.type() == QgsWkbTypes.LineGeometry:
+
+						if geomSingleType:
+							#self.lines.append(geom.asPolyline())
+							v = geom.asPolyline()
+							line = []
+							print("Vertines: ", len(v), " Long: ", geom.length())
+							if geom.length() > 10:
+								for p in v:
+									x, y = self.layer_to_calc_transformCoord.transform(p)
+									#x, y = p
+									point = [x, y]
+									line.append(point)
+								self.lines_total.append(line)
+
+						else:					
+							x = geom.asMultiPolyline()
+							for v in x:
+								line = []
+								print("Vertines: ", len(v), " Long: ", geom.length())
+								if geom.length() > 10:
+									for p in v:
+										x, y = self.layer_to_calc_transformCoord.transform(p)
+										#x, y = p
+										point = [x, y]
+										line.append(point)
+									self.lines_total.append(line)
+
+			#for i in self.lines_total:
+			#	print(i)
+
+			return True
+
+"""	
+			elif self.layerRute.wkbType() == QgsWkbTypes.MultiLineString:
+				print("Capa Multilinea")
+				
+				features = self.layerRute.getFeatures()
+				for feature in features:
+					geom = feature.geometry()
+					geomSingleType = QgsWkbTypes.isSingleType(geom.wkbType())
+					if geom.type() == QgsWkbTypes.LineGeometry:
+						if geomSingleType:
+							self.points.append(geom.asPolyline())
+							x = geom.asPolyline()
+							#print("Linea: ", x, "long: ", geom.length())
+						else:					
+							x = geom.asMultiPolyline()
+							for v in x:
+								self.points.append(v)
+								print(len(v))
+								#print("PoliLinea: ", x, "long: ", geom.length())
+
+				return True
 
 		if self.layer_type == QgsMapLayerType.VectorLayer:
+		
 			#print(self.layerRute.wkbType())
 			features = self.layerRute.getFeatures()
 			self.points = []
@@ -101,7 +182,8 @@ class getRute:
 		else:
 			print("Capa No soportada")
 			return False
-
+"""
+"""
 	def create_globals(self):
 		crsMap = QgsCoordinateReferenceSystem(self.mapCanvas.mapSettings().destinationCrs().authid())
 		crsGps = QgsCoordinateReferenceSystem("EPSG:4326")
@@ -232,3 +314,5 @@ class getRute:
 	def erase(self):
 		self.r_polyline.reset(QgsWkbTypes.LineGeometry)
 		self.g_polyline.reset(QgsWkbTypes.LineGeometry)
+
+"""

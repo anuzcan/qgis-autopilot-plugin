@@ -1,7 +1,7 @@
 [general]
 name=Sistema de Guiado de conduccion
 description=Plugin para guiado de conduccion electro asistida
-about=Plugin desarrollado por ATN agricola desarrollos
+about=Plugin desarrollado por ATN
 version=1.0
 qgisMinimumVersion=3.0
 author=Pablo Núñez Canales

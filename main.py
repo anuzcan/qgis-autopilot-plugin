@@ -12,22 +12,22 @@ from qgis import utils
 from qgis.gui import QgsRubberBand
 from qgis.core import Qgis, QgsApplication, QgsProject, QgsSettings, QgsMessageLog, QgsVectorLayer, QgsPoint, QgsGeometry, QgsWkbTypes, QgsDistanceArea
 
-from .autopilot import getRute
+from .getRute import getRute
 
 def classFactory(iface):
 	return Main_Plugin(iface)
 
 class Main_Plugin:
 	def __init__(self, iface):
+		
 		self.iface = iface
-        
 		self.canvas = iface.mapCanvas()
 	
 	def initGui(self):
 
 		#Definir icono agregar al interfaz de Qgis
 		path = os.path.dirname( os.path.abspath( __file__ ) )
-		icon_path = os.path.join(path,"icon.png")
+		icon_path = os.path.join(path,"icon-electr.png")
 		self.action = QAction(QIcon(icon_path),"&Herramienta",self.iface.mainWindow())
 		self.iface.addToolBarIcon(self.action)
 		self.action.triggered.connect(self.run)
@@ -38,14 +38,17 @@ class Main_Plugin:
 		self.dock.buttonConnect.clicked.connect(self.connect_port)
 		self.dock.led_on.clicked.connect(self.led_on)
 		self.dock.led_off.clicked.connect(self.led_off)
-		self.dock.testButton.clicked.connect(self.test)
 		self.dock.selectLayerRuteButton.clicked.connect(self.selectLayerRute)
+		self.dock.RunButton.clicked.connect(self.StarDriver)
+		self.dock.StopButton.clicked.connect(self.StopDriver)
 		self.dock.buttonClose_plugin.clicked.connect(self.closePlugin)
+		self.dock.testButton.clicked.connect(self.test)
 		
 		#Banderas
 		self.flatPort = False
 		self.flat_gps_active = False
 		self.flat_layer_select = False
+		self.flat_run = False
 
 	def unload(self): 
 
@@ -84,11 +87,15 @@ class Main_Plugin:
 	def status_changed(self,gpsInfo):
 		if self.GPS.status() == 3:                              # Si se recibe nueva ubicacion GPS
 			now = gpsInfo.utcDateTime.currentDateTime().toString(Qt.TextDate)
-			print(now)
-			print(gpsInfo.longitude)
-			print(gpsInfo.latitude)
+			#print(now)
+			#print(gpsInfo.longitude)
+			#print(gpsInfo.latitude)
 			if self.flat_layer_select:
-				self.rute.init_vert(gpsInfo.longitude, gpsInfo.latitude)
+				self.rute.init_rute(gpsInfo.longitude, gpsInfo.latitude)
+				self.flat_layer_select = False
+			
+			if self.flat_run:
+				self.rute.run(gpsInfo.longitude, gpsInfo.latitude)
 
 	def connectionLost(self):
 		try:
@@ -103,14 +110,35 @@ class Main_Plugin:
 		self.rute.erase()
 
 	def selectLayerRute(self):
+		
 		ruta = QgsProject().instance().mapLayersByName(self.dock.mMapLayerComboBox.currentText())[0]
-		
 		self.rute = getRute(ruta, self.canvas)
-		self.flat_layer_select = True
+	
+		if self.rute.valid():
+			print(len(self.rute.lines_total))
+			self.flat_layer_select = True
+		else:
+			utils.iface.messageBar().pushMessage("Error ","Capa Seleccionada no valida",level=Qgis.Critical,duration=3)
 		
-		#longitude = -85.49951
-		#latitude = 10.39042
-		#self.rute.init_vert(longitude, latitude)
+		
+	def StarDriver(self):
+
+		# Lineas para pruebas
+#		longitude = -85.49951
+#		latitude = 10.39042
+#		if self.rute.valid():
+#			self.rute.init_rute(longitude, latitude)
+#			self.rute.run(longitude, latitude)
+#			print("Star")
+		###
+	
+		self.flat_run = True
+
+
+	def StopDriver(self):
+		print("Stop")
+		self.rute.erase()
+		self.flat_run = False
 
 	def connect_port(self):
 		if self.flatPort == False:
